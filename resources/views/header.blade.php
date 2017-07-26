@@ -29,7 +29,7 @@
                                 <ul class="dropdown-menu" aria-labelledby="dropdownMenu1">
 
                                     <li>
-                                        <a href="/customer">Barang</a>
+                                        <a href="/product/list">Barang</a>
                                     </li>                                  
                                     <li role="separator" class="divider"></li>
                                     <li>

@@ -100,19 +100,9 @@
 			    			</div>
 			    			<div class="col-md-3">
 			    				<select class="form-control" name="courier_company" tabindex="3">
-			    					<option value="">Pilih</option>
-			    					@foreach ($courier_company as $key => $value)
-			    						<?php
-			    							$compselected = "";			    						
-			    						if (isset($company_courier[0])){
-			    							if ($value->id==$company_courier[0]->id){
-			    								$compselected = "selected";			
-			    							}
-			    						}
-			    						?>
-			    						<option value="{{$value->id}}" {{$compselected}}>{{$value->company}}</option>
-			    							}
-			    					@endforeach
+			    					<option value="">Pilih Courier</option>
+			    					<option value="internal">Internal</option>
+			    					<option value="3PL">3PL</option>			    					
 			    				</select>
 			    			</div>
 			    			<div class="col-md-3">
@@ -388,7 +378,7 @@
 
 	var availablemerchant = [
 	  	@foreach ($merchants as $key => $value)
-			"{{trim($value->merchant_name)}}",
+			"{{trim($value->name)}}",
 		@endforeach
 	];
 	var typex="{{$type}}";

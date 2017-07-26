@@ -21,7 +21,7 @@
 				<div class="col-md-12 alert alert-danger">		
 				    <ul>
 				        @foreach($errors->all() as $error) 		            				            
-				            <li>{{$error}}</li>
+				            <li>{{str_replace("name","Nama toko",$error)}}</li>
 				        @endforeach 
 				    </ul>
 			    </div>
@@ -30,23 +30,23 @@
 		<br/>
 		<div class="row">				
 			<div class="col-md-12">		
-				<form method="post" action="/merchant/create" class="formsubmit">
+				<form method="post" action="/merchant/update/{{$merchant->id}}" class="formsubmit">
 					<input type="hidden" name="_token" value="{{ csrf_token() }}">					
 					<div class="form-group">
 					    <label for="email">Nama</label>
-						 <input type="text" class="form-control" id="name" name="name" placeholder="input nama" value="{{ old('name') }}" required>
+						 <input type="text" class="form-control" id="name" name="name" placeholder="input nama" value="{{$merchant->name}}" required>
 					</div>		
 					<div class="form-group">
 					    <label for="email">Phone</label>
-						 <input type="text" class="form-control" id="phone" name="phone" placeholder="input phone" value="{{ old('name') }}" required>
+						 <input type="text" class="form-control" id="phone" name="phone" placeholder="input phone" value="{{$merchant->phone}}" required>
 					</div>				
 					<div class="form-group">
 					    <label for="pwd">Address:</label>
-					    <textarea class="form-control" cols="3" name="address" placeholder="input address" required>{{ old('address') }}</textarea>
+					    <textarea class="form-control" cols="3" name="address" placeholder="input address" required>{{$merchant->address}}</textarea>
 					</div>					
 					<div class="form-group">
 					    <label for="pwd">Description:</label>
-					    <textarea class="form-control" cols="3" name="description" placeholder="input description">{{ old('description') }}</textarea>
+					    <textarea class="form-control" cols="3" name="description" placeholder="input description">{{$merchant->description}}</textarea>
 					</div>
 					
 					<button type="submit" class="btn btn-primary">Submit</button>

@@ -13,11 +13,11 @@ use \PHPExcel_IOFactory, \PHPExcel_Style_Fill, \PHPExcel_Cell, \PHPExcel_Cell_Da
 
 class InventoryController extends Controller {
     
-    public function __construct(Request $req){
-        if(!\Auth::check()) {
-            Redirect::to('')->send();
-        }                
+    var $data;
+    var $company_id;
+    public function __construct(Request $req){             
         $this->data["user"] = \Auth::user();
+        $this->company_id = \Auth::user();
         $this->page = 15;
     }
 
@@ -39,9 +39,9 @@ class InventoryController extends Controller {
 
     //merchant ambil dari table company field name
     public function inbound(Request $req){
-        $count = DB::table("tb_merchant_pickup")
-            ->where("order_number", $req->input("order_id"," "))
-            ->count();
+        // $count = DB::table("merchant")
+        //     ->where("order_number", $req->input("order_id"," "))
+        //     ->count();
         $data = self::_getInOut($req, "in");                        
         return view('inbound', $data);
     }
@@ -54,7 +54,7 @@ class InventoryController extends Controller {
     public function edit(Request $req){        
         $order_no = $req->input("order_no");
         $date     = $req->input("date", "");        
-        $data["merchants"] = DB::table("tb_merchant_pickup")
+        $data["merchants"] = DB::table("merchant")
                     ->select("merchant_name")
                     ->where("merchant_name","<>","")
                     ->groupBy("merchant_name")
@@ -815,19 +815,11 @@ class InventoryController extends Controller {
     private static function _getInOut($req, $status){
         $data["origin_address"] = DB::select("select REPLACE(REPLACE(origin, '\n', ''), '\r', ' ') origin  from inventory where origin<>'' group by origin order by id desc, origin asc limit 200");
         $data["dest_address"] = DB::select("select REPLACE(REPLACE(dest, '\n', ''), '\r', ' ') dest from inventory where dest<>'' AND address_type='address' or address_type is null group by dest order by id desc, dest asc limit 200");
-        $data["merchants"] = DB::table("tb_merchant_pickup")
-                ->select(DB::raw("trim(merchant_name) as merchant_name"))
-                ->where("merchant_name","<>","")
-                ->groupBy(DB::raw("trim(merchant_name)"))
-                ->orderBy("merchant_name", "asc")->get();
-        $data["courier_company"] = DB::table("inventory_courier_company")->select("id", "company")->orderBy("company")->get();
-        $data["courier"] = $req->session()->get("courier", "");        
-        $data["company_courier"] = DB::select("Select ICC.id, ICC.company from inventory_courier IC
-                                inner join inventory_courier_company ICC on IC.company_id=ICC.id
-                                where IC.id='".$data["courier"]."'");
-        if (isset($data["company_courier"][0])){
-            $data["couriers"] = DB::table("inventory_courier")->where("company_id", $data["company_courier"][0]->id)->get();
-        }        
+        $data["merchants"] = DB::table("merchant")->get();
+        // $data["courier"] = $req->session()->get("courier", "");                
+        // if (isset($data["company_courier"][0])){
+        //     $data["couriers"] = DB::table("inventory_courier")->where("company_id", $data["company_courier"][0]->id)->get();
+        // }        
         $data["orderNo"] = $req->session()->get("orderNo", "");
         $data["resi_no"] = $req->input("resi_no", "");
         $data["nama"] = $req->input("nama", "");

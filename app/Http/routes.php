@@ -20,6 +20,7 @@ Route::group(['middleware' => 'logic'], function(){
 	Route::controller('/user', 'UserController');
 	Route::controller('/courier', 'CourierController');
 	Route::controller('/merchant', 'MerchantController');
+	Route::controller('/product', 'ProductController');
 });
 
 

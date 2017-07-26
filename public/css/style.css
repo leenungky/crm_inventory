@@ -109,6 +109,7 @@
 .col-top-menu1{
 	padding:3% 0;
 	text-align: center;
+	cursor: pointer;
 }
 
 .col-top-menu-user{
@@ -124,6 +125,7 @@
 	width: 100%;
   	float: right;
   	height: 27px;
+
 }
 
 .col-top-menu-user .dropdown.open{

@@ -257,9 +257,9 @@
 	    	return $data;
 	    }
 
-	     public static function get_rw_build() {
+	     public static function get_rw_build($company_id, $tablename) {
 	    	$pref = date("ymd");		
-	    	$sql = "SELECT count(*) as total from inventory  where SUBSTRING(order_no,1,6)='".$pref."' AND is_generate=1 AND deleted_at is null";	
+	    	$sql = "SELECT count(*) as total from ".$tablename."  where SUBSTRING(order_no,1,6)='".$pref."' AND company_id=".$company_id;	
 			$countdb = DB::select($sql);	
 			$prefix = "000".($countdb[0]->total+1);
 			$prefix = substr($prefix,-4);		
