@@ -32,8 +32,8 @@ class DashboardController extends Controller {
 			->get();
 
 		$data["db_courier"] = DB::table("inventory_sum_courier")
-			->select("inventory_courier.name", "inventory_sum_courier.total")
-			->leftJoin("inventory_courier", "inventory_courier.id","=","inventory_sum_courier.courier_id")
+			->select("courier.name", "inventory_sum_courier.total")
+			->leftJoin("courier", "courier.id","=","inventory_sum_courier.courier_id")
 			->where("date_from", ">=", $from)
 			->where("date_to", "<=", $to)
 			->get();	

@@ -10,7 +10,7 @@
 		];
 	}else{
 		 $data = [			
-			'url' => "http://inventory.dev",
+			'url' => "http://crminventory.dev",
 		];
 	}
 return $data;

@@ -21,7 +21,7 @@ $( document ).ready(function() {
 	});
 
 	$("select[name='courier_company']").change(function(){		
-		var url = domain + "/courier?company_id=" + $(this).val();
+		var url = domain + "/courier/courierbycompany/" + $(this).val();
 		console.log(url);	
 		$.ajax({
 			url: url,
@@ -364,8 +364,8 @@ function getWeight(order_id){
 			$("#weight").val(result.data.weight);
 		}
 	});
-}
 
+}
 function doInsert(isInsert, order_no){
 	var courier = $("select[name='courier'] option:selected").val();		
 	var type = $("input[name='typeinv']").val();
@@ -446,29 +446,26 @@ function insertAjax(isPrint){
 	}	
 	var emailx 		= $("input[name='email']").val();
 	var data_post = { order_id   	: order_idx ,
-					 resi_no        : resi_nox,
-				     is_generate    : is_generatex,
-				     rd_dest        : rd_destx,
+					 resi_no        : resi_nox,				     				     
 				     nama 			: namax, 
 					 merchant 		: merchantx, 
 					 phone 			: phonex, 
 					 email 			: emailx,
 					 origin_address : origin_addressx,
 					 dest_address 	: dest_addressx, 
-					 rd_origin 		: rd_originx, 
-					 rd_dest 		: rd_destx , 
+					 rd_origin 		: rd_originx, 					 
 					 courier 		: courierx, 
 					 delivery_type  : delivery_typex,
 					 weight 		: weightx,
 					 oweight 		: oweightx,
-					 rweight 		: rweightx,
-					 isrounded 		: isroundedx,
+					 rweight 		: rweightx,					 
 					 panjang 		: panjangx,
 					 tinggi 		: tinggix,
 					 lebar 			: lebarx,
 					 type 			:typex};
 	console.log('insertajax');
-	$.post( "/insertajax",data_post, function(result) {			
+	$.post( "/insertajax",data_post, function(result) {	
+		console.log(result);		
 		if (result.response.code==200){						 
 			showingQrCode(order_idx);
 			$("#table-div").load(base_url + "/readHistory/" + typex);

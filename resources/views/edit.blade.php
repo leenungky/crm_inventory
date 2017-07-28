@@ -11,7 +11,7 @@
                 <div class="col-md-12">                          
                     <form action="update" method="post" id="updateform">
                         {{ csrf_field() }}
-                        <input type="hidden" name="id" value="{{$history->id_history}}">
+                        <input type="hidden" name="id" value="{{$history->id}}">
                         <input type="hidden" name="order_no" value="{{$history->order_no}}">
                         <input type="hidden" name="status" value="{{$status}}">
                         <input type="hidden" name="date" value="{{$date}}">
@@ -65,19 +65,10 @@
                                 Courier company
                             </div>
                             <div class="col-md-3">
-                                <select class="form-control" name="courier_company">
-                                    <option value="">Pilih</option>
-                                    @foreach ($courier_company as $key => $value)
-										@if (isset($courier))
-											@if ($value->id==$courier->company_id)
-													<option value="{{$value->id}}" selected>{{$value->company}}</option>
-											@else
-													<option value="{{$value->id}}">{{$value->company}}</option>
-											@endif
-										@else
-											<option value="{{$value->id}}">{{$value->company}}</option>
-										@endif
-                                    @endforeach
+                                <select class="form-control" name="courier_company">                                    
+                                    <option value="">Pilih Courier</option>
+                                    <option value="internal">Internal</option>
+                                    <option value="3PL">3PL</option>    
                                 </select>
                             </div>
                             <div class="col-md-3">
@@ -160,10 +151,10 @@
                                         <select class="form-control" name="merchant" required>
                                             <option value="">Pilih Merchant</option>
                                             @foreach ($merchants as $key => $value)
-                                                @if (trim($value->merchant_name)==trim($inventory->merchant_name))
-                                                    <option value="{{$value->merchant_name}}" selected>{{$value->merchant_name}}</option>
+                                                @if (trim($value->id)==trim($inventory->merchant_id))
+                                                    <option value="{{$value->id}}" selected>{{$value->name}}</option>
                                                 @else
-                                                    <option value="{{$value->merchant_name}}">{{$value->merchant_name}}</option>
+                                                    <option value="{{$value->id}}">{{$value->name}}</option>
                                                 @endif
                                             @endforeach 
                                         </select>                                    
@@ -198,7 +189,7 @@
                                     Origin *
                                 </div>
                                 <div class="col-md-8">
-                                    <input type="radio" name="rd_origin" value="address" checked="checked" />Address
+                                    <input type="radio" name="rd_origin" value="address" checked="chekced" />Address
                                     <input type="radio" name="rd_origin" value="loker"/>Loker
                                 </div>
                             </div>
@@ -219,8 +210,8 @@
                             <div class="row row-input">
                                 <div class="col-md-4">
                                     Destination *
-                                </div>
-                                <div class="col-md-8">
+                                </div
+>                                <div class="col-md-8">
                                     <input type="radio" name="rd_dest" value="address" checked="checked" />Address
                                     <input type="radio" name="rd_dest" value="loker" />Loker
                                 </div>
@@ -267,11 +258,7 @@
         </div>
     
 <script type="text/javascript">
-    var availableLoker = [
-        @foreach ($lokers as $key => $value)
-            "{{$value->name}}",
-        @endforeach 
-    ];  
+    
     var availableOrigins = [
         @foreach ($origin_address as $key => $value)
             "{{trim($value->origin)}}",

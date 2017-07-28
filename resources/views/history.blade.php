@@ -51,7 +51,7 @@
 			    							{{$value->merchant_name}}
 			    						</td>
 			    						<td>
-			    							{{$value->last_update}}
+			    							{{$value->created_at}}
 			    						</td>
 			    						<td>
 			    							{{$value->logistic_name}}
@@ -60,13 +60,9 @@
 			    							{{$value->courier}}
 			    						</td>	
 										<td>
-			    							<span class="edit" order-id="{{$value->order_no}}" val-id="{{$value->id_history}}" val-status="{{$value->status}}" val-date="{{$value->last_update}}"> 
+			    							<span class="edit" order-id="{{$value->order_no}}" val-id="{{$value->id}}" val-status="{{$value->status}}" val-date="{{$value->created_at}}"> 
 			    								<span class="glyphicon glyphicon-pencil"></span>
-			    							</span> | 
-			    							<span class="delete" order-id="{{$value->order_no}}" val-id="{{$value->id_history}}" val-status="{{$value->status}}" val-date="{{$value->last_update}}">
-			    								<span class="glyphicon glyphicon-remove"></span>
 			    							</span> 
-
 			    						</td>
 										
 			    					</tr>

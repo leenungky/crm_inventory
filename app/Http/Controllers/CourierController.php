@@ -81,6 +81,18 @@ class CourierController extends Controller {
         return redirect('/courier/list')->with('message', "Successfull update");
     }
 
+    
+    public function getCourierbycompany($company){
+        $req = $this->data["req"];        
+        $courier = DB::table("courier")->where("company", $company)->where("company_id", $this->company_id)
+                ->orderBy("name")
+                ->get();
+        $resp = array("response" =>array("code" => "200", "message" => "ok"), 
+                    "data" => $courier);
+        return response()->json($resp);
+    }
+
+
     private function _get_index_filter($filter){
         $dbcust = DB::table("courier")->where("company_id", $this->company_id);
         if (isset($filter["name"])){

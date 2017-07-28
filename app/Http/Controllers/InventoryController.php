@@ -17,7 +17,8 @@ class InventoryController extends Controller {
     var $company_id;
     public function __construct(Request $req){             
         $this->data["user"] = \Auth::user();
-        $this->company_id = \Auth::user();
+        $this->data["req"] = $req;
+        $this->company_id = $this->data["user"]->company_id; 
         $this->page = 15;
     }
 
@@ -42,46 +43,54 @@ class InventoryController extends Controller {
         // $count = DB::table("merchant")
         //     ->where("order_number", $req->input("order_id"," "))
         //     ->count();
-        $data = self::_getInOut($req, "in");                        
+        $data = $this->getInOut($req, "in");                        
         return view('inbound', $data);
     }
 
     public function outbound(Request $req){
-        $data = self::_getInOut($req, "out");                       
+        $data = $this->getInOut($req, "out");                       
         return view('inbound', $data);
     }
 
     public function edit(Request $req){        
         $order_no = $req->input("order_no");
         $date     = $req->input("date", "");        
-        $data["merchants"] = DB::table("merchant")
-                    ->select("merchant_name")
-                    ->where("merchant_name","<>","")
-                    ->groupBy("merchant_name")
-                    ->orderBy("merchant_name", "asc")->get();          
-        $data["lokers"] = DB::table("locker_locations")->select("name")->get();
-        $data["history"] = DB::table("inventory_history")->where("order_no", $order_no)->where("last_update", $date)->first();
+        $this->data["merchants"] = DB::table("merchant")
+                    ->select("id","name") 
+                    ->where("company_id", $this->company_id)                   
+                    ->orderBy("name", "asc")->get();                  
+        $this->data["history"] = DB::table("inventory_history")
+                ->where("order_no", $order_no)
+                ->where("created_at", $date)
+                ->where("company_id", $this->company_id)
+                ->first();
         
-        $data["inventory"] = DB::table("inventory")->where("order_no", $order_no)->whereNull("deleted_at")->first();
+        $this->data["inventory"] = DB::table("inventory")->where("order_no", $order_no)
+        ->where("company_id", $this->company_id)
+        ->first();
 
 
-        $data["origin_address"] = DB::select("select REPLACE(REPLACE(origin, '\n', ''), '\r', ' ') origin from inventory where origin<>'' group by origin order by id desc, origin asc limit 200");
-        $data["dest_address"] = DB::select("select REPLACE(REPLACE(dest, '\n', ''), '\r', ' ') dest from inventory where dest<>'' group by dest order by id desc, dest asc limit 200");
 
-        $data["courier_company"] = DB::table("inventory_courier_company")->select("id", "company")->orderBy("company")->get();
+        $this->data["origin_address"] = DB::select("select REPLACE(REPLACE(origin, '\n', ''), '\r', ' ') origin from inventory where origin<>'' AND company_id=".$this->company_id." group by origin order by id desc, origin asc limit 200");
+        $this->data["dest_address"] = DB::select("select REPLACE(REPLACE(dest, '\n', ''), '\r', ' ') dest from inventory where dest<>'' AND company_id=".$this->company_id." group by dest order by id desc, dest asc limit 200");
 
-        $data["courier"] = DB::table("inventory_courier")->where("id", $data["history"]->inventory_courier_id)->first();        
+        $this->data["courier"] = DB::table("courier")->where("id", $this->data["history"]->inventory_courier_id)
+            ->where("company_id", $this->company_id) 
+            ->first();        
         $company_courier = "";
-        if (isset($data["courier"])){
-            $company_courier = $data["courier"]->company_id;
+        if (isset($this->data["courier"])){
+            $company_courier = $this->data["courier"]->company_id;
         }
-        $data["status"] = $req->input("status", "in");
-        $data["date"] = $date;
-        $data["couriers"] = DB::table("inventory_courier")->where("company_id", $company_courier)->get();
-        return view("edit", $data);
+        $this->data["status"] = $req->input("status", "in");
+        $this->data["date"] = $date;
+        $this->data["couriers"] = DB::table("courier")->where("company", $company_courier)
+        ->where("company_id", $this->company_id)
+        ->get();
+        return view("edit", $this->data);
     }
 
-    public function update(Request $req){                        
+    public function update(){                        
+        $req = $this->data["req"];
         $id = $req->input("id","");
         $order_no = $req->input("order_no","");
         $rd_origin = $req->input("rd_origin","");
@@ -94,7 +103,7 @@ class InventoryController extends Controller {
             "delivery_type" => $req->input("delivery_type","")
         );
         $arrInventory = array(
-            "merchant_name" => $req->input("merchant",""),
+            "merchant_id" => $req->input("merchant",""),
             "resi_no" =>  $req->input("resi_no",""),
             "phone" => $req->input("phone",""),
             "email" => $req->input("email",""),
@@ -108,33 +117,32 @@ class InventoryController extends Controller {
             "isrounded" => $req->input("rounded","0")
         );
 
-        if ($rd_origin=="address"){
-            $arrInventory["origin"] =  $req->input("origin_address","");
-        }else{
-            $arrInventory["origin"] =  $req->input("origin_loker","");
-        }
+        $arrInventory["origin"] =  $req->input("origin_address","");        
 
         if ($rd_dest=="address"){
-            $arrInventory["dest"] =  $req->input("dest_address","");
-        }else{
-            $arrInventory["dest"] =  $req->input("dest_loker","");
-        }        
-        DB::table('inventory_history')->where('id_history', $id)->where("last_update", $date)->update($arrHistory);
-        DB::table('inventory')->where('order_no', $order_no)->update($arrInventory);        
-        if ($status=="in")
-            return redirect('/inbound')->with('message', $order_no.', Berhasil diupdate');
-        else if ($status=="out")
-            return redirect('/outbound')->with('message', $order_no.', Berhasil diupdate');
-        else{
-            $url = "/allorder";
-            if ($req->session()->has('paramsallorder')) {
-                $url = $url."?".$req->session()->get('paramsallorder');
-            }    
-            return redirect($url)->with('message', $order_no.', Berhasil diupdate');
+                    
+            DB::table('inventory_history')->where('id', $id)->where("created_at", $date)
+                ->where("company_id", $this->company_id)
+                ->update($arrHistory);
+            DB::table('inventory')->where('order_no', $order_no)
+                ->where("company_id", $this->company_id)
+                ->update($arrInventory);        
+            if ($status=="in")
+                return redirect('/inbound')->with('message', $order_no.', Berhasil diupdate');
+            else if ($status=="out")
+                return redirect('/outbound')->with('message', $order_no.', Berhasil diupdate');
+            else{
+                $url = "/allorder";
+                if ($req->session()->has('paramsallorder')) {
+                    $url = $url."?".$req->session()->get('paramsallorder');
+                }    
+                return redirect($url)->with('message', $order_no.', Berhasil diupdate');
+            }
         }
-    }
 
-    public function deleteconf(Request $req){ 
+}
+    public function deleteconf(){ 
+        $req = $this->data["req"];
         $id = $req->input("id", "");
         $order_no = $req->input("order_no", "");
         $status = $req->input("status", "");
@@ -144,44 +152,18 @@ class InventoryController extends Controller {
         return view("deleteconf", $data);
     }
 
-    public function deleted(Request $req){   
-        $id = $req->input("id", "");
-        $order_no = $req->input("order_no", "");
-        $status = $req->input("status", "");
-        $rd_delete = $req->input("rd_delete", "");
-        $msg = "";        
-        $arrUpdate = array(
-            "deleted_at" => date("Y-m-d h:i:s"),
-            "deleted_by" => $this->data["user"]->first_name." ".$this->data["user"]->last_name
-            );
-        if ($rd_delete == "one"){ 
-                DB::table('inventory_history')->where('id_history',  $id)->update($arrUpdate);    
-                $msg = $order_no." berhasil dihapus untuk satu history terakhir";         
-        }else if ($rd_delete == "all"){
-            DB::table('inventory_history')->where('order_no',  $order_no)->update($arrUpdate);
-            DB::table('inventory')->where('order_no',  $order_no)->update($arrUpdate);
-            $msg = $order_no.", berhasil dihapus untuk semua history";
-        }else{
-            $msg = $order_no.", gagal dihapus";
-        }
-
-        if ($status=="in")
-            return redirect('/inbound')->with('message', $msg);
-        else
-            return redirect('/outbound')->with('message', $msg);
-    }
-
-    public function find_latest_status(Request $req){        
+   
+    public function find_latest_status(){        
+        $req = $this->data["req"];
         $order_no = $req->input("orderNo" , "");
         $status = $req->input("status", "");
         $delivery_type = $req->input("delivery_type", "");
         $data = DB::table("inventory_history")
-            ->where("order_no" , $order_no)            
-            ->whereNull("deleted_at")
-            ->orderBy("id_history" , "DESC")
+            ->where("order_no" , $order_no)                        
+            ->orderBy("id", "DESC")
             ->first();
         if (isset($data)){
-            $resp = array("response" => array ("code" => "200", "message" => "ok", "description" => $data->status, "date" => $data->last_update));
+            $resp = array("response" => array ("code" => "200", "message" => "ok", "description" => $data->status, "date" => $data->created_at));
         }else{
             if ($status=="out"){                                                    
                 if ($delivery_type == "popshop" || $delivery_type =="internal"){
@@ -208,9 +190,9 @@ class InventoryController extends Controller {
 
         $data = DB::table("inventory_history")
             ->where("status" , $status)
-            ->where("order_no" , $order_no)            
-            ->whereNull("deleted_at")
-            ->where("last_update" , "<",  date("Y-m-d H:i").":00")
+            ->where("order_no" , $order_no)                        
+            ->where("company_id", $this->company_id)
+            ->where("created_at" , "<",  date("Y-m-d H:i").":00")
             ->first();
         if (isset($data)){
             $resp = array("response" => array("code" => "200", "message" => "ok","description" => "data ditemukan"), 
@@ -239,24 +221,22 @@ class InventoryController extends Controller {
 
         
         if (empty($data["delivery"])){            
-            $someUsers = self::_getAllOrderObject($data);                    
+            $someUsers = $this->getAllOrderObject($data);                                
         }else{
-            $someUsers = self::_getAllOrderObjectNotDeliver($data);            
+            $someUsers = $this->getAllOrderObjectNotDeliver($data);            
         }
-        $data["merchants"] = DB::table("tb_merchant_pickup")
-                ->select("merchant_name")
-                ->where("merchant_name","<>","")
-                ->groupBy("merchant_name")
-                ->orderBy("merchant_name", "asc")->get();
+        $data["merchants"] = DB::table("merchant")
+                ->select("id","name")       
+                ->where("company_id", $this->company_id)         
+                ->orderBy("name", "asc")->get();
 
-        $data["couriers"] = DB::table("inventory_courier")
-                ->select("id","name")
-                ->where("name","<>","")
-                ->groupBy("name")
+        $data["couriers"] = DB::table("courier")
+                ->select("id","name")          
+                ->where("company_id", $this->company_id)      
                 ->orderBy("name", "asc")->get();
 
         $data["count"] =$someUsers->count();   
-        $data["row1"] =$someUsers->paginate($this->page);        
+        $data["row1"] =$someUsers->paginate($this->page);  
         $data["param_download"] = http_build_query($req->input());                        
         return view('allorder', $data);
     }
@@ -290,7 +270,8 @@ class InventoryController extends Controller {
     }
 
 
-    public function insertajax(Request $req){                  
+    public function insertajax(){        
+        $req = $this->data["req"];
         if (!$req->input("order_id") && !$req->input("phone") && !$req->input("origin_address") && !$req->input("dest_address") && !$req->input("email")){
             $resp = array("response" => array("code" => "301", "message" => "failed","description" => "parameter ada yang masih kurang"), 
                 "data" => array());
@@ -298,29 +279,33 @@ class InventoryController extends Controller {
             exit();
         }
         
-        $order_no = $req->input("order_id","");
+        $order_no = $req->input("order_id","");        
         $courier = $req->input("courier","");
         $delivery_type = $req->input("delivery_type","");
         $req->session()->put("courier", $courier);
         $req->session()->put("delivery_type", $delivery_type);
-        $status = $req->input("type" , "in");
-        $arrInsert = Helpers::getIdInsert($req); 
+        $status = $req->input("type" , "in");        
+        $arrInsert = Helpers::getIdInsert($this);              
         $id = $arrInsert["id"];
         if (isset($id)){
             date_default_timezone_set("Asia/Jakarta");
+            $logistic_name = "";
+            if (isset($this->data["user"])){
+                $logistic_name = $this->data["user"]->first_name." ".$this->data["user"]->last_name;
+            }
             $ins_history = array(
                 "id_inv" => $id,
                 "order_no" => $arrInsert["order_no"],
                 "inventory_courier_id" => $req->input("courier",""),
                 "status" => $status,
                 "delivery_type" => $req->session()->get("delivery_type"),
-                "logistic_name" => $this->data["user"]->first_name." ".$this->data["user"]->last_name,                
-                "last_update" => date("Y-m-d H:i:s"),
-            );
+                "logistic_name" => $logistic_name,
+                "created_at" => date("Y-m-d H:i:s")
+            );            
             $isexist = DB::table("inventory_history")
                 ->where("order_no", $ins_history["order_no"])
                 ->where("status", $status)
-                ->where("last_update",">=", date("Y-m-d H:i").":00")
+                ->where("created_at",">=", date("Y-m-d H:i").":00")
                 ->first();
             if (isset($isexist)){
             }else{
@@ -343,9 +328,10 @@ class InventoryController extends Controller {
             return response()->json($resp);
             exit();
         }
-    }
-
-    public function find(Request $req){            
+    
+}
+    public function find(){            
+        $req = $this->data["req"];
         $order_no = $req->input("orderNo");
         $req->session()->put("order_no", $order_no);        
         $courier = $req->input("courier","");
@@ -357,60 +343,28 @@ class InventoryController extends Controller {
 
         $isExist = true;
         $arr_is_status = array("is_return" => false, "is_delivery" => false, "is_popshop" => false, "is_internal" =>false);
-        $inventory = DB::table("inventory")->where("order_no", $order_no)->whereNull("deleted_at")->first();
+        $inventory = DB::table("inventory")->where("order_no", $order_no)->where("company_id", $this->company_id)->first();
         if (empty($inventory)){
-            $inventory = DB::table("tb_member_pickup")->where("invoice_id", $order_no)->first();
+            $inventory = DB::table("product")->where("order_no", $order_no)
+                ->where("company_id", $this->company_id)->first();
             if (empty($inventory)){
-                $inventory = DB::table("tb_merchant_pickup")->where("order_number", $order_no)->first();
-                if (empty($inventory)){
-                    $inventory = DB::table("locker_activities_return")->where("tracking_no", $order_no)->first();                    
-                    if (empty($inventory)){
-                        $inventory = DB::table("orders")->where("invoice_id", $order_no)->first();
-                        if (empty($inventory)){                            
-                            $inventory = DB::table("tb_merchant_service")->where("invoice_id", $order_no)->first();
-                            if (empty($inventory)){
-                                $inventory = DB::table("inventory_transaction")->where("order_no", trim($order_no))->first();
-                                if (empty($inventory)){
-                                    $isExist = false;    
-                                }else{
-                                    $data = Helpers::get_inventory_table($inventory, "inventory_transaction");
-                                }                                
-                            }else{
-                                $arr_is_status["is_delivery"] = true;
-                                $data = Helpers::get_inventory_table($inventory, "merchant_service");
-                            }                            
-                        }else{
-                            $arr_is_status["is_delivery"] = true;
-                            $data = Helpers::get_inventory_table($inventory, "orders");
-                        }
-                    }else{
-                        $arr_is_status["is_return"] = true;                        
-                        $data = Helpers::get_inventory_table($inventory, "merchant_return");
-                    }
-                }else{
-                    $arr_is_status["is_delivery"] = true;
-                    $data = Helpers::get_inventory_table($inventory, "merchant_pickup");
-                }
-            }else{
+                $isExist = false;    
+            }else{            
                 $arr_is_status["is_delivery"] = true;
-                $data = Helpers::get_inventory_table($inventory, "member_pikcup");                
+                $data = Helpers::get_inventory_table($inventory, "product");                
             }
 
             if ($isExist){                    
                 $id = Helpers::insertInvetory($data, $req);           
-                Helpers::insertInvetoryHistory($id, $req, $this->data["user"], $arr_is_status);
-                $inventory = DB::table("inventory")->where("order_no", $order_no)->first(); 
+                Helpers::insertInvetoryHistory($id, $this, $arr_is_status);
+                $inventory = DB::table("inventory")->where("order_no", $order_no)->where("company_id", $this->company_id)->first(); 
             }
         }else{
-            if ($inventory->tbl_name=="locker_activities_return"){
-                $arr_is_status["is_return"] = true;        
-            }else{
-                $arr_is_status["is_delivery"] = true;        
-            }            
-            Helpers::insertInvetoryHistory($inventory->id, $req, $this->data["user"], $arr_is_status);
+            $arr_is_status["is_delivery"] = true;        
+            Helpers::insertInvetoryHistory($inventory->id, $this, $arr_is_status);
         }
         if ($isExist){                        
-            $history = DB::table("inventory_history")->where("order_no", $order_no)->first();
+            $history = DB::table("inventory_history")->where("order_no", $order_no)->where("company_id", $this->company_id)->first();
             $resp = array("response" =>array("code" => "200", "message" => "ok","is_return" =>  $arr_is_status["is_return"]), 
                 "data" => array("inventory" => $inventory, "history" => $history));
         }else{
@@ -424,12 +378,13 @@ class InventoryController extends Controller {
         $order_no = $req->input("orderNo");
         $req->session()->put("order_no", $order_no);
         $inventory = DB::table("inventory")
-                ->where("order_no", $order_no)                            
+                ->where("order_no", $order_no)   
+                ->where("company_id", $this->company_id)                            
                 ->first();        
         if (isset($inventory)){
             $history = DB::table("inventory_history")
                     ->where("order_no", $order_no)
-                    ->orderBy('id_history', 'asc')
+                    ->orderBy('id', 'asc')
                     ->where("deleted_at", "is not null")
                     ->get();            
             $resp = array("response" =>array("code" => "200", "message" => "ok"),   
@@ -465,41 +420,36 @@ class InventoryController extends Controller {
     }
 
     public function readHistory($type){
-        $whereDate = " DATE(last_update)='".date('Y-m-d')."' AND ";
-
+        $whereDate = " DATE(created_at)='".date('Y-m-d')."' AND company_id=".$this->company_id;        
         if ($type=="in"){
-            $whereDate = "DATE(last_update)>'2017-06-08' AND "; //tanggal dimulainya operational tanpa out
+            $whereDate = "DATE(created_at)>'2017-06-08' AND company_id=".$this->company_id; //tanggal dimulainya operational tanpa out
         }
         $someUsers = DB::table(DB::raw('inventory_history IH'))
-                    ->select(DB::raw("IH.id_history, IH.status, IH.order_no, IH.last_update, IH.logistic_name, inventory_courier.name courier, inventory.merchant_name"))
-                    ->join(DB::raw("(SELECT order_no, max(id_history) id_history, last_update FROM `inventory_history` where ".$whereDate." deleted_at is null group by order_no) b"), "IH.id_history","=","b.id_history")
-                    ->leftJoin("inventory_courier", "inventory_courier.id", '=', DB::raw("IH.inventory_courier_id"))
+                    ->select(DB::raw("IH.id, IH.status, IH.order_no, IH.created_at, IH.logistic_name, courier.name courier, merchant.name as merchant_name"))
+                    ->join(DB::raw("(SELECT order_no, max(id) id, created_at FROM inventory_history where ".$whereDate." group by order_no) b"), "IH.id","=","b.id")
+                    ->leftJoin("courier", "courier.id", '=', DB::raw("IH.inventory_courier_id"))
                     ->leftJoin("inventory", "inventory.order_no", '=', DB::raw("IH.order_no"))
+                    ->leftJoin("merchant", "merchant.id", '=', "inventory.merchant_id")
+                    ->where("IH.company_id", $this->company_id)
                     ->where(DB::raw("IH.status"),"=", $type)
                     ->whereNull(DB::raw("inventory.deleted_at"))
-                    ->orderBy(DB::raw("IH.id_history"), "DESC");        
+                    ->orderBy(DB::raw("IH.id"), "DESC");        
         $data["history"] = $someUsers->paginate($this->page);
+
         if ($type=="in")
             $data["history"]->setPath('/inbound');              
         else
             $data["history"]->setPath('/outbound');  
         $data["status"] = $type;
         $data["count"] = $data["history"]->total();
+
         return view('history', $data);
     }
 
-    public function courier(Request $req){
-        $company_id  = $req->input("company_id");
-        $courier = DB::table("inventory_courier")->where("company_id", $company_id)
-                ->orderBy("name")
-                ->get();
-        $resp = array("response" =>array("code" => "200", "message" => "ok"), 
-                    "data" => $courier);
-        return response()->json($resp);
-    }
-
-    public function generaterwb(Request $req){
-        $rwbuild = Helpers::get_rw_build();
+ 
+     public function generaterwb(){
+        $req = $this->data["req"];
+        $rwbuild = Helpers::get_rw_build($this->company_id, "product");
         $resp = array("response" =>array("code" => "200", "message" => "ok"), 
                     "data" => $rwbuild);
         return response()->json($resp);        
@@ -607,13 +557,13 @@ class InventoryController extends Controller {
             if (count($arr)>0){
                 foreach ($arr as $key => $value) {
                     $inventory = array(
-                            "order_no" => Helpers::get_rw_build(),
+                            "order_no" => Helpers::get_rw_build($this->company_id, "product"),
                             "weight" => $value["weight"],
                             "panjang" => $value["panjang"],
                             "lebar" => $value["lebar"],
                             "tinggi" => $value["tinggi"],
                             "isrounded" => "0", 
-                            "merchant_name" => $value["merchant_name"], 
+                            "merchant_id" => $value["merchant_name"], 
                             "resi_no" => $value["resi_no"], 
                             "phone" => $value["phone"], 
                             "origin" => $value["origin"],
@@ -623,7 +573,7 @@ class InventoryController extends Controller {
                             "is_generate" => 1,
                             "recipient_name" => $value["rechipient_name"],
                             "tbl_name" => 'tb_merchant_address',
-                            "upload_date" => date("Y-m-d h:i:s")
+                            "created_at" => date("Y-m-d h:i:s")
                         );
                     $id = DB::table("inventory")->insertGetId($inventory);
                     if (isset($id)){
@@ -634,7 +584,7 @@ class InventoryController extends Controller {
                             "status" => "in",
                             "logistic_name" => $this->data["user"]->first_name." ".$this->data["user"]->last_name,
                             "delivery_type" => $value["delivery_type"],
-                            "last_update" =>date("Y_m_d H:i:s")
+                            "created_at" =>date("Y_m_d H:i:s")
                         );
                         $id_hist = DB::table("inventory_history")->insertGetId($inv_history);                        
                     }
@@ -656,15 +606,17 @@ class InventoryController extends Controller {
         $data["courier"] = $req->input("courier",""); 
 
         $count_in = DB::table(DB::raw('inventory_history IH'))
-                    ->join(DB::raw("(SELECT order_no, max(id_history) id_history FROM `inventory_history` where DATE(last_update)>='".$data["from"]."' AND DATE(last_update)<='".$data["to"]."' AND (deleted_at is not null OR deleted_at!='') group by order_no) b"), "IH.id_history","=","b.id_history")
+                    ->join(DB::raw("(SELECT order_no, max(id) id FROM `inventory_history` where DATE(created_at)>='".$data["from"]."' AND DATE(created_at)<='".$data["to"]."' AND (deleted_at is not null OR deleted_at!='') group by order_no) b"), "IH.id","=","b.id")
                     ->where("status","in")
+                    ->where("company_id", $this->company_id)
                     ->count();     
         $count_out = DB::table(DB::raw('inventory_history IH'))                    
-                    ->join(DB::raw("(SELECT order_no, max(id_history) id_history FROM `inventory_history` where DATE(last_update)>='".$data["from"]."' AND DATE(last_update)<='".$data["to"]."' AND (deleted_at is not null OR deleted_at!='') group by order_no) b"), "IH.id_history","=","b.id_history")
+                    ->join(DB::raw("(SELECT order_no, max(id) id FROM `inventory_history` where DATE(created_at)>='".$data["from"]."' AND DATE(created_at)<='".$data["to"]."' AND (deleted_at is not null OR deleted_at!='') group by order_no) b"), "IH.id","=","b.id")
                     ->where("status","out")
+                    ->where("company_id", $this->company_id)
                     ->count();     
 
-        $dbquery = self::_getAllOrderObject($data);
+        $dbquery = $this->getAllOrderObject($data);
         $db = $dbquery->get();                
         $xls = new PHPExcel();
         $xls->getActiveSheet()->setCellValue('A1', 'Order ID');
@@ -687,7 +639,7 @@ class InventoryController extends Controller {
                 $in = SiteHelpers::getMaxDayStatus($value->order_no, "in"); 
                 $out = SiteHelpers::getMaxDayStatus($value->order_no, "out");                
                 $all = SiteHelpers::getMaxDayStatus($value->order_no);
-                $days = SiteHelpers::getDistanceDay($value->status, $value->last_update);
+                $days = SiteHelpers::getDistanceDay($value->status, $value->created_at);
                 if ($days>0 && $all->status=="in"){
                     self::cellColor($xls, 'A'.$idx.':I'.$idx, 'FF0000');
                 }                
@@ -698,11 +650,11 @@ class InventoryController extends Controller {
                 if ($all->status=="in"){
                     self::cellColor($xls, 'E'.$idx, '006600');
                 }
-                $xls->getActiveSheet()->setCellValue('E'.$idx, isset($in->last_update) ? $in->last_update : "");
+                $xls->getActiveSheet()->setCellValue('E'.$idx, isset($in->created_at) ? $in->created_at : "");
                 if ($all->status=="out"){
                     self::cellColor($xls, 'F'.$idx, '006600');   
                 }                
-                $xls->getActiveSheet()->setCellValue('F'.$idx, isset($out->last_update) ? $out->last_update : "");
+                $xls->getActiveSheet()->setCellValue('F'.$idx, isset($out->created_at) ? $out->created_at : "");
                 $xls->getActiveSheet()->setCellValue('G'.$idx, isset($in->remark) ? $in->remark : "");
                 $xls->getActiveSheet()->setCellValue('H'.$idx, isset($out->remark) ? $out->remark : "");
                 $xls->getActiveSheet()->setCellValue('I'.$idx, $value->delivery_type);
@@ -724,10 +676,10 @@ class InventoryController extends Controller {
     public function download(Request $req){        
         $type = $req->input("type");
         $sql = "SELECT IH.*, ic.name courier, iv.* FROM inventory_history IH 
-                inner join (SELECT order_no, max(id_history) id_history FROM `inventory_history` where DATE(last_update)='".date('Y-m-d')."' AND deleted_at is null group by order_no) b on IH.id_history=b.id_history 
-                left join  inventory_courier ic on ic.id=IH.inventory_courier_id
+                inner join (SELECT order_no, max(id) id FROM `inventory_history` where DATE(last_update)='".date('Y-m-d')."' AND deleted_at is null group by order_no) b on IH.id=b.id 
+                left join courier ic on ic.id=IH.inventory_courier_id
                 left join inventory iv on iv.id=IH.id_inv
-                WHERE IH.status='".$type."' AND iv.deleted_at is null order by IH.id_history DESC";        
+                WHERE IH.status='".$type."' AND iv.deleted_at is null order by IH.id DESC";        
         $history = DB::select($sql);        
         $xls = new PHPExcel();
         $xls->getActiveSheet()->setCellValue('A1', 'Order ID');
@@ -777,8 +729,8 @@ class InventoryController extends Controller {
         $code = $req->input("code", ""); 
         $data = array("code" => $code, "qrcode" => "", "is_complete_desc" => true, "is_locker" => true, "is_cod" => false);
         if ($code!=""){
-            $inventory = DB::table("inventory")->where("order_no", $code)->first();
-            $history = DB::table("inventory_history")->where("order_no", $code)->first();           
+            $inventory = DB::table("inventory")->where("order_no", $code)->where("company_id", $this->company_id)->first();
+            $history = DB::table("inventory_history")->where("order_no", $code)->where("company_id", $this->company_id)->first();           
             $data["label_dest"] = isset($inventory->address_type) ? $inventory->address_type : "" ;            
             $data["tujuan"] = $inventory->dest;            
             if (mb_strtoupper($data["label_dest"])=="LOKER" || strtoupper($data["label_dest"])=="LOCKER" || strtoupper($data["label_dest"])=="LOCKERS" || strtoupper($data["label_dest"])=="LOKERS"){
@@ -812,15 +764,15 @@ class InventoryController extends Controller {
         return view("test");
     }
 
-    private static function _getInOut($req, $status){
+    private function getInOut($req, $status){
         $data["origin_address"] = DB::select("select REPLACE(REPLACE(origin, '\n', ''), '\r', ' ') origin  from inventory where origin<>'' group by origin order by id desc, origin asc limit 200");
-        $data["dest_address"] = DB::select("select REPLACE(REPLACE(dest, '\n', ''), '\r', ' ') dest from inventory where dest<>'' AND address_type='address' or address_type is null group by dest order by id desc, dest asc limit 200");
-        $data["merchants"] = DB::table("merchant")->get();
+        $data["dest_address"] = DB::select("select REPLACE(REPLACE(dest, '\n', ''), '\r', ' ') dest from inventory where dest<>'' AND company_id=".$this->company_id." group by dest order by id desc, dest asc limit 200");
+        $data["merchants"] = DB::table("merchant")->where("company_id", $this->company_id)->get();
         // $data["courier"] = $req->session()->get("courier", "");                
         // if (isset($data["company_courier"][0])){
         //     $data["couriers"] = DB::table("inventory_courier")->where("company_id", $data["company_courier"][0]->id)->get();
-        // }        
-        $data["orderNo"] = $req->session()->get("orderNo", "");
+        // }       
+         $data["orderNo"] = $req->session()->get("orderNo", "");
         $data["resi_no"] = $req->input("resi_no", "");
         $data["nama"] = $req->input("nama", "");
         $data["weight"] = $req->input("weight", "");
@@ -833,22 +785,19 @@ class InventoryController extends Controller {
         return $data;
     }
 
-    private static function _getAllOrderObjectNotDeliver($data){
+    private function getAllOrderObjectNotDeliver($data){
         $someUsers = DB::table(DB::raw('inventory_history IH'))
-                    ->select(DB::raw("IH.*,inventory_courier.name courier_name, inventory.merchant_name merchant, inventory.oweight, inventory.rweight, inventory.isrounded"))
-                    ->join(DB::raw("(Select order_no, max(id_history) id_history from inventory_history group by order_no) tbsum"), "IH.id_history","=","tbsum.id_history")
-                    ->leftJoin("inventory_courier", "inventory_courier.id", '=', DB::raw("IH.inventory_courier_id"))
+                    ->select(DB::raw("IH.*,courier.name courier_name, merchant.name merchant, inventory.oweight, inventory.rweight, inventory.isrounded"))
+                    ->join(DB::raw("(Select order_no, max(id) id from inventory_history group by order_no) tbsum"), "IH.id","=","tbsum.id")
+                    ->leftJoin("courier", "courier.id", '=', DB::raw("IH.inventory_courier_id"))
                     ->join("inventory", "inventory.order_no", "=" , DB::raw("IH.order_no"))
+                    ->join("merchant", "merchant.id", "=" , "inventory.merchant_id", "left")
                     ->where(DB::raw("IH.status"),"in")
-                    ->where(DB::raw("date(last_update)"), ">=", $data["from"])
-                    ->where(DB::raw("date(last_update)"), "<=", $data["to"])
-                    ->orderBy(DB::raw("IH.id_history"), "desc");        
+                    ->where(DB::raw("date(created_at)"), ">=", $data["from"])
+                    ->where(DB::raw("date(created_at)"), "<=", $data["to"])
+                    ->where(DB::raw("IH.company_id"), "=", $this->company_id)
+                    ->orderBy(DB::raw("IH.id"), "desc");        
 
-        // $sql = 'SELECT IH.*,IC.name courier_name, IV.merchant_name merchant, IV.oweight, IV.rweight, IV.isrounded from inventory_history IH 
-        //     inner join (Select order_no, max(id_history) id_history from inventory_history group by order_no) tbsum on IH.id_history=tbsum.id_history 
-        //     left join inventory IV on IH.id_inv=IV.id 
-        //     left join inventory_courier IC on IC.id=IH.inventory_courier_id
-        //     where IH.status="in" AND date(last_update)>="'.$data["from"].'" AND date(last_update)<="'.$data["to"].'"';
         if ($data["delivery_type"]!=""){
             $someUsers =$someUsers->where(DB::raw("IH.delivery_type"), "=" , $data["delivery_type"]);
         }
@@ -857,22 +806,25 @@ class InventoryController extends Controller {
         }
 
         if ($data["merchant"]!=""){
-            $someUsers =$someUsers->where("inventory.merchant_name", "like" ,  "%".trim($data['merchant'])."%");
+            $someUsres =$someUsers->where("inventory.merchant_name", "like" ,  "%".trim($data['merchant'])."%");
         }
 
         if ($data["courier"]!=""){
             $someUsers =$someUsers->where("IH.inventory_courier_id", "=" ,  trim($data['courier']));   
         }
-        return $someUsers;
-    }
+        return $someUsers
+;    }
 
-    private static function _getAllOrderObject($data){
-         $someUsers = DB::table(DB::raw('inventory_history IH'))
-                    ->select(DB::raw("IH.*,inventory_courier.name courier_name, inventory.merchant_name merchant, inventory.oweight, inventory.rweight, inventory.isrounded"))
-                    ->join(DB::raw("(SELECT order_no, max(id_history) id_history FROM `inventory_history` where DATE(last_update)>='".$data["from"]."' AND DATE(last_update)<='".$data["to"]."' group by order_no) b" ), "IH.id_history","=","b.id_history")
-                    ->leftJoin("inventory_courier", "inventory_courier.id", '=', DB::raw("IH.inventory_courier_id"))
+    private function getAllOrderObject($data){
+        
+        $someUsers = DB::table(DB::raw('inventory_history IH'))
+                    ->select(DB::raw("IH.*,courier.name courier_name, merchant.name merchant, inventory.oweight, inventory.rweight, inventory.isrounded")
+)                    ->join(DB::raw("(SELECT order_no, max(id) id FROM `inventory_history` where DATE(created_at)>='".$data["from"]."' AND DATE(created_at)<='".$data["to"]."' group by order_no) b" ), "IH.id","=","b.id")
+                    ->leftJoin("courier", "courier.id", '=', DB::raw("IH.inventory_courier_id"))
                     ->join("inventory", "inventory.order_no", "=" , DB::raw("IH.order_no"))
-                    ->orderBy(DB::raw("IH.id_history"), "desc");        
+                    ->join("merchant", "merchant.id", "=" , "inventory.merchant_id", "left")                    
+                    ->orderBy(DB::raw("IH.id"), "desc");        
+        $someUsers =$someUsers->where(DB::raw("IH.company_id"), "=" , $this->company_id);
         if ($data["delivery_type"]!=""){
             $someUsers =$someUsers->where(DB::raw("IH.delivery_type"), "=" , $data["delivery_type"]);
         }
@@ -880,8 +832,8 @@ class InventoryController extends Controller {
             $someUsers =$someUsers->where(DB::raw("IH.order_no"), "like" ,  "%".$data['orderid']."%");
         }
 
-        if ($data["merchant"]!=""){
-            $someUsers =$someUsers->where("inventory.merchant_name", "like" ,  "%".trim($data['merchant'])."%");
+        if ($data["merchant"]!=""){                        
+            $someUsers =$someUsers->where("inventory.merchant_id", $data['merchant']);
         }
 
         if ($data["courier"]!=""){
@@ -890,7 +842,7 @@ class InventoryController extends Controller {
         return $someUsers;
     }
 
-    private static function cellColor($objPHPExcel, $cells,$color){
+    private function cellColor($objPHPExcel, $cells,$color){
         $objPHPExcel->getActiveSheet()->getStyle($cells)->getFill()->applyFromArray(array(
             'type' => PHPExcel_Style_Fill::FILL_SOLID,
             'startcolor' => array(

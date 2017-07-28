@@ -220,8 +220,14 @@
 			    			<div class="col-md-4">
 			    				Merchant *
 			    			</div>
+
 			    			<div class="col-md-8">
-			    				<input type="text" name="merchant-name" class="form-control" value="" placeholder="Search for..." readonly="true">
+			    				<select class="form-control" name="merchant_id" required="true"> 
+			    				<option>Pilih Merchant</option>
+					    		@foreach($merchants as $key => $value)
+					    			<option value="{{$value->id}}">{{$value->name}}</option>
+					    		@endforeach
+					    		</select>
 			    			</div>
 			    		</div>
 			    		<div class="row row-input">

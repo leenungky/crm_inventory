@@ -6,77 +6,65 @@
 	use Illuminate\Support\Facades\DB;
 
 	class Helpers{		
-		public static function getIdInsert($req){
-			$tbl_name = 'tb_merchant_pickup';
+		public static function getIdInsert($controll){
+			$req = $controll->data["req"]; 
+			$tbl_name = 'product';
 			$order_no = $req->input("order_id"," ");
 			$is_awb_new = 0;
-			if ($req->input("is_generate")=="1"){
-				$is_awb_new = DB::table("inventory")->where("order_no", $order_no)->count();
-				if ($is_awb_new==1){
-					$order_no = self::get_rw_build();
-				}				
-				if ($req->input("rd_dest")=="address"){
-					$tbl_name = 'tb_merchant_address';					
-				}
-			}
+			$order_no = self::get_rw_build($controll->company_id, "product");			
 	        $ins = array(
 	            "order_no" => $order_no,
+	            "company_id" => $controll->company_id,
 	            "phone" => $req->input("phone"," "),
 	            "recipient_name" => $req->input("nama",""),               
 	            "email" => $req->input("email"," "),
-	            "merchant_name" => $req->input("merchant"," "),	                        
+	            "merchant_id" => $req->input("merchant"," "),	                        
 	            "origin" => $req->input("origin_address",""),	            
-	            "dest" => $req->input("dest_address",""),
-	            "address_type" => strtoupper($req->input("rd_dest","")),
-	            "isrounded" => $req->input("isrounded", "0"),
+	            "dest" => $req->input("dest_address",""),	            	            
                 "panjang" => $req->input("panjang", "0"),
                 "lebar" => $req->input("lebar", "0"),
                 "tinggi" => $req->input("tinggi", "0"),
                 "weight" => $req->input("weight", "0"),
                 "oweight" => $req->input("oweight", "0"),
-                "rweight" => $req->input("rweight", "0"),
-	            "tbl_name" => $tbl_name,	           
-	            "upload_date" =>date("Y-m-d H:i:s")
+                "rweight" => $req->input("rweight", "0"),	            
+	            "created_at" =>date("Y-m-d H:i:s")
 	            );
 
 	       	$ins_member = $ins;
 	        $isexist = DB::table("inventory")
             	->where("order_no", $ins["order_no"])
             	->whereNull("deleted_at")
-            	->first();            
-            if (isset($isexist)){            	
+            	->where("company_id", $controll->company_id)
+            	->first();                        	
+            if (isset($isexist)){            	            	
             	return null;
-            }else{            	
-            	$ins["is_generate"] = $req->input("is_generate");
+            }else{                   	
             	$ins["resi_no"] = $req->input("resi_no", "");
             	$id  = DB::table("inventory")->insertGetId($ins);        
-            	if ($tbl_name == "tb_merchant_pickup"){
-	            	$count = DB::table("tb_merchant_pickup")->where("order_number", $ins["order_no"])->count();
+            	$count = DB::table("product")->where("order_no", $ins["order_no"])->count();
 	            	if ($count==0){
 	            		 $insPickup = array(
-				        	"order_number" =>$ins["order_no"],
-				        	"merchant_name" => $req->input("merchant"," "),
+				        	"order_no" =>$ins["order_no"],
+				        	"company_id" => $controll->company_id,
+				        	"merchant_id" => $req->input("merchant"," "),
 				        	"customer_phone" => $req->input("phone"," "),
 				        	"customer_email" => $req->input("email"," "),
 				        	"weight" => $req->input("weight","0"),
-				        	"pickup_location" => $req->input("origin_address",""),
-				        	"popbox_location" => $req->input("dest_address",""),				        	
-				        	"last_update" => date("Y-m-d H:i:s")
+				        	"origin" => $req->input("origin_address",""),
+				        	"destination" => $req->input("dest_address",""),				        	
+				        	"created_at" => date("Y-m-d H:i:s")
 		        		);
-	            		DB::table("tb_merchant_pickup")->insert($insPickup);
-	            	}
-            	}else{
-            		$count = DB::table("tb_merchant_address")->where("order_no", $ins["order_no"])->count();
-	            	if ($count==0){	        
-	            		DB::table("tb_merchant_address")->insert($ins_member);
-	            	}
-            	}
-            	return array("id" => $id, "is_awb_new" => $is_awb_new, "order_no" => $ins["order_no"]);
+	            		DB::table("product")->insert($insPickup);
+	            	}            	
+            	return array("id" => $id, "is_awb_new" => $is_awb_new, "order_no" => $ins["order_no"]);            	
             } 
 	        
 	    }
 
-	    public static function insertInvetoryHistory($id, $req, $user, $arr_is_status){
+	    public static function insertInvetoryHistory($id, $controll, $arr_is_status){	    	
+	    	$user = $controll->data["user"];
+	    	$req  = $controll->data["req"];
+	    	$company_id = $controll->company_id;
 	    	 $status = $req->input("type");	    	
 	    	// $delivery_type = $req->input("del_type", "");
 	    	// if (strtolower($delivery_type)=="pilih"){	    			    		
@@ -90,6 +78,7 @@
 	    	
 	    	$ins_history = array(                
                 "id_inv" => $id,
+                "company_id" => $company_id,
                 "order_no" => $req->input("orderNo",""),
                 "inventory_courier_id" => $req->session()->get("courier", ""),                               
                 "status" => $status,
@@ -122,54 +111,24 @@
 	    }
 
 	    public static function get_inventory_table($inventory, $type){
-	    	if ($type == "member_pikcup"){
-	    		return self::get_inventory_member_pickup($inventory);	    		
-	    	}else if ($type == "merchant_pickup"){
-	    		return 	self::get_inventory_merchant_pickup($inventory);	    		
-	    	}else if ($type == "merchant_return"){	    
-	    		return self::get_inventory_merchant_return($inventory);	    		
-	    	}else if ($type == "orders"){	    		
-	    		return self::get_inventory_order($inventory);	    		
-	    	}else if ($type == "merchant_service"){	    		
-	    		return self::get_inventory_service($inventory);	    		
-	    	}else if ($type == "inventory_transaction"){
-	    		return self::get_inventory_transaction($inventory);	    		
-
+	    	if ($type == "product"){
+	    		return self::get_inventory_product($inventory);	    			    	
 	    	}
 	    }
 
-	    public static function get_inventory_transaction($inventory){
-	    	$customernameDb = DB::table("inventory_customer")->where("id", $inventory->sender_id)->first();
-	    	return array(
-	    		"order_no" 			=> $inventory->order_no,
-	    		"merchant_name" 	=> "Popbox Asia",
-	    		"phone" 			=> $inventory->phone, 
-	    		"email" 			=> "",
-	    		"origin" 			=> "Popbox Asia WH",
-	    		"address_type" 		=> "ALAMAT",
-	    		"dest" 				=> $inventory->address,		
-	    		'recipient_name' 	=> $customernameDb->name,
-	    		"tbl_name" 			=> 'inventory_transaction',
-	    		"upload_date" 		=> date('Y-m-d H:i:s')
-	    		);
-	    }
+	    
 
-	    public static function get_inventory_member_pickup($inventory){
-	    	$dest = $inventory->recipient_address.", ".$inventory->recipient_address_detail;
-	    	if (strtoupper(substr($inventory->invoice_id, 0, 3)) == 'PLL') {
-	    		$dest = $inventory->recipient_locker_name;
-	    	}	    	
+	    public static function get_inventory_product($inventory){	    	
 	    	$data = array(
-	    		"order_no" 			=> $inventory->invoice_id,
-	    		"merchant_name" 	=> "Popbox Asia",
-	    		"phone" 			=> $inventory->recipient_phone, 
-	    		"email" 			=> $inventory->recipient_email, 
-	    		"origin" 			=> $inventory->pickup_locker_name,
-	    		"address_type" 		=> "ALAMAT",
-	    		"dest" 				=> $dest,	    		
-	    		'recipient_name' 	=> $inventory->recipient_name,
-	    		"tbl_name" 			=> 'tb_member_pickup',
-	    		"upload_date" 		=> date('Y-m-d H:i:s')
+	    		"company_id"		=> $inventory->company_id,
+	    		"order_no" 			=> $inventory->order_no,
+	    		"merchant_id" 		=> $inventory->merchant_id,
+	    		"phone" 			=> $inventory->customer_phone, 
+	    		"email" 			=> $inventory->customer_email, 
+	    		"origin" 			=> $inventory->origin,	    		
+	    		"dest" 				=> $inventory->destination,	    		
+	    		'recipient_name' 	=> $inventory->customer_name,	    		
+	    		"created_at" 		=> date('Y-m-d H:i:s')
 	    		);
 	    	return $data;
 	    }
@@ -179,7 +138,7 @@
 	    		"order_no" 			=> $inventory->order_number,
 	    		"merchant_name" 	=> $inventory->merchant_name,
 	    		"phone" 			=> $inventory->customer_phone, 
-	    		"email" 			=> $inventory->customer_email, 
+	    		"email"	 		=> $inventory->customer_email, 
 	    		"origin" 			=> $inventory->pickup_location, 
 	    		"address_type" 		=> "LOKER",
 	    		"dest" 				=> $inventory->popbox_location,	    		
@@ -259,7 +218,7 @@
 
 	     public static function get_rw_build($company_id, $tablename) {
 	    	$pref = date("ymd");		
-	    	$sql = "SELECT count(*) as total from ".$tablename."  where SUBSTRING(order_no,1,6)='".$pref."' AND company_id=".$company_id;	
+	    	$sql = "SELECT count(*) as total from ".$tablename."  where SUBSTRING(order_no,1,6)='".$pref."' AND company_id=".$company_id; 
 			$countdb = DB::select($sql);	
 			$prefix = "000".($countdb[0]->total+1);
 			$prefix = substr($prefix,-4);		

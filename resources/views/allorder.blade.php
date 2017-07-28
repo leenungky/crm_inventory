@@ -57,10 +57,10 @@
 		    				<select class="form-control" name="merchant" id="merchant">
 		    					<option value="">Pilih</option>
 			    				@foreach ($merchants as $key => $value)
-			    					@if ($value->merchant_name == $merchant)
-			    						<option value="{{$value->merchant_name}}" selected>{{$value->merchant_name}}</option>
+			    					@if ($value->name == $merchant)
+			    						<option value="{{$value->id}}" selected>{{$value->name}}</option>
 			    					@else
-			    						<option value="{{$value->merchant_name}}">{{$value->merchant_name}}</option>
+			    						<option value="{{$value->id}}">{{$value->name}}</option>
 			    					@endif
 			    				@endforeach
 		    				</select>
@@ -212,7 +212,7 @@
 				    									}
 				    								}
 				    							?>
-				    							<span class="edit" order-id="{{$value->order_no}}" val-id="{{$value->id_history}}" val-status="all" val-date="{{$val_date}}"> 
+				    							<span class="edit" order-id="{{$value->order_no}}" val-id="{{$value->id}}" val-status="all" val-date="{{$val_date}}"> 
 				    								<span class="glyphicon glyphicon-pencil"></span>
 				    							</span>
 				    						</td>

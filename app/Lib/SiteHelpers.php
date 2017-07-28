@@ -138,13 +138,13 @@ class SiteHelpers
 	public static function getMaxDayStatus($orderno, $status = "all"){
 		if ($status =="all"){
 			$someUsers = DB::table(DB::raw('inventory_history IH'))
-					->select("b.id_history","status","last_update","remark")
-                    ->join(DB::raw("(SELECT order_no, max(id_history) id_history FROM `inventory_history` where order_no='".$orderno."' group by order_no) b"), "IH.id_history","=","b.id_history")->first();
+					->select("b.id","status","last_update","remark")
+                    ->join(DB::raw("(SELECT order_no, max(id) id FROM `inventory_history` where order_no='".$orderno."' group by order_no) b"), "IH.id","=","b.id")->first();
 		}else{
 			$someUsers = DB::table(DB::raw('inventory_history IH'))
-					->select("last_update","remark", DB::raw("inventory_courier.name"))
-                    ->join(DB::raw("(SELECT order_no, max(id_history) id_history FROM `inventory_history` where status='".$status."' AND order_no='".$orderno."' group by order_no) b"), "IH.id_history","=","b.id_history")
-                    ->leftJoin("inventory_courier", DB::raw("IH.inventory_courier_id"), "=", "inventory_courier.id")
+					->select("last_update","remark", DB::raw("courier.name"))
+                    ->join(DB::raw("(SELECT order_no, max(id) id FROM `inventory_history` where status='".$status."' AND order_no='".$orderno."' group by order_no) b"), "IH.id","=","b.id")
+                    ->leftJoin("courier", DB::raw("IH.inventory_courier_id"), "=", "courier.id")
                     ->first();
         }
 		if (isset($someUsers)){			
